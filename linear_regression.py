@@ -24,6 +24,7 @@ def normalize_features(df):
 
     return df_normalized, mu, sigma
 
+
 def compute_cost(features, values, theta):
     """
     Compute the cost of a list of parameters, theta, given a list of features 
@@ -52,16 +53,17 @@ def gradient_descent(features, values, theta, alpha, num_iterations):
     return theta, pandas.Series(cost_history) # leave this line for the grader
 
 
-def get_predictions(dataframe, features,alpha, num_iterations):
+def get_predictions(dataframe, numerical_features, categorical_features, values_column, alpha, num_iterations):
     # Select Features (try different features!)
-    features = dataframe[features]
+    features = dataframe[numerical_features]
     
     # Add UNIT to features using dummy variables
-    dummy_units = pandas.get_dummies(dataframe['UNIT'], prefix='unit')
-    features = features.join(dummy_units)
+    for categorical_feature in categorical_features:
+        dummy_units = pandas.get_dummies(dataframe[categorical_feature], prefix=categorical_feature.lower())
+        features = features.join(dummy_units)
     
     # Values
-    values = dataframe['ENTRIESn_hourly']
+    values = dataframe[values_column]
     m = len(values)
 
     features, mu, sigma = normalize_features(features)
@@ -71,10 +73,6 @@ def get_predictions(dataframe, features,alpha, num_iterations):
     features_array = np.array(features)
     values_array = np.array(values)
 
-    # Set values for alpha, number of iterations.
-    alpha = 0.1 # please feel free to change this value
-    num_iterations = 75 # please feel free to change this value
-
     # Initialize theta, perform gradient descent
     theta_gradient_descent = np.zeros(len(features.columns))
     theta_gradient_descent, cost_history = gradient_descent(features_array, 
@@ -83,18 +81,8 @@ def get_predictions(dataframe, features,alpha, num_iterations):
                                                             alpha, 
                                                             num_iterations)
     
-    plot = None
-    # -------------------------------------------------
-    # Uncomment the next line to see your cost history
-    # -------------------------------------------------
-    # plot = plot_cost_history(alpha, cost_history)
-    # 
-    # Please note, there is a possibility that plotting
-    # this in addition to your calculation will exceed 
-    # the 30 second limit on the compute servers.
-    
     predictions = np.dot(features_array, theta_gradient_descent)
-    return predictions, (alpha,cost_history)
+    return predictions, theta_gradient_descent, (alpha,cost_history)
 
 
 def plot_cost_history(alpha, cost_history):
@@ -116,7 +104,7 @@ def plot_cost_history(alpha, cost_history):
       geom_point() + ggtitle('Cost History for alpha = %.3f' % alpha )
 
 
-def compute_r_squared(data, predictions):
+def compute_r_squared(dataframe, values_column, predictions):
     '''
     In exercise 5, we calculated the R^2 value for you. But why don't you try and
     and calculate the R^2 value yourself.
@@ -130,7 +118,7 @@ def compute_r_squared(data, predictions):
     http://docs.scipy.org/doc/numpy/reference/generated/numpy.mean.html
     http://docs.scipy.org/doc/numpy/reference/generated/numpy.sum.html
     '''
-    
+    data = dataframe[values_column]
     num = ((data-predictions)**2).sum()
     denm = ((data - data.mean())**2).sum()
     r_squared = 1 - (num/denm)
@@ -138,9 +126,13 @@ def compute_r_squared(data, predictions):
     return r_squared
 
 
-def predict(dataframe,features,alpha=0.1,num_iterations=75, plot_data=False):
-    results, plot_data = get_predictions(dataframe, features,alpha, num_iterations)
-    r2_value = compute_r_squared(dataframe, results)
+def predict(dataframe, numerical_features, values_column, categorical_features=[], 
+    alpha=0.1,num_iterations=75, plot_data=False):
+
+    results, thetas, plot_data = get_predictions(dataframe, numerical_features, categorical_features, 
+        values_column, alpha, num_iterations)
+    print results
+    r2_value = compute_r_squared(dataframe, values_column, results)
     if plot_data:
-        return results, r2_value, plot_data
-    return results, r2_value
+        return results,thetas, r2_value, plot_data
+    return results, thetas, r2_value
